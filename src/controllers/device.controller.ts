@@ -258,6 +258,7 @@ export async function getAllDevices(req: Request, res: Response) {
       {
         $project: {
           deviceId: '$_id',
+          numericDeviceId: '$lastReading.raw.device_id',
           lastSeen: '$lastReading.ts',
           temperature: '$lastReading.temperature',
           humidity: '$lastReading.humidity',
