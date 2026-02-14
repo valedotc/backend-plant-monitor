@@ -5,6 +5,7 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import { connectDatabase } from './config/database';
+import { mqttService } from './services/mqtt.service';
 import deviceRoutes from './routes/device.routes';
 
 const app = express();
@@ -26,6 +27,9 @@ app.get('/health', (req, res) => {
 async function start() {
   try {
     await connectDatabase();
+
+    // Connect to MQTT broker and start ingesting telemetry
+    mqttService.connect();
 
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
