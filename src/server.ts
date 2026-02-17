@@ -23,12 +23,17 @@ app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    alertWatcher: alertWatcherService.isActive() ? 'active' : 'inactive',
+  });
 });
 
 // Start server
 async function start() {
   try {
+    // Connect to MongoDB
     await connectDatabase();
 
     // Initialize Firebase Admin SDK (for push notifications)
@@ -47,5 +52,18 @@ async function start() {
     process.exit(1);
   }
 }
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down...');
+  await alertWatcherService.stopWatching();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down...');
+  await alertWatcherService.stopWatching();
+  process.exit(0);
+});
 
 start();
