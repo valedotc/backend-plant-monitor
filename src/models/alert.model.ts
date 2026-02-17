@@ -18,15 +18,16 @@ export enum AlertSeverity {
 }
 
 export interface IAlert extends Document {
-  deviceId: string; // ESP32 device ID (e.g., "esp32_001")
+  deviceId: string;
   alertType: AlertType;
   severity: AlertSeverity;
   message: string;
-  value: number; // The sensor value that triggered the alert
-  threshold: number; // The threshold that was exceeded
+  value: number;
+  threshold: number;
   acknowledged: boolean;
   notificationSent: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const AlertSchema = new Schema<IAlert>(
@@ -54,7 +55,6 @@ const AlertSchema = new Schema<IAlert>(
   }
 );
 
-// Index for efficient queries
 AlertSchema.index({ deviceId: 1, createdAt: -1 });
 AlertSchema.index({ acknowledged: 1, createdAt: -1 });
 

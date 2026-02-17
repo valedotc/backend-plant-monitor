@@ -1,11 +1,16 @@
-import { IClientOptions } from 'mqtt';
-
 export interface MqttConfig {
   brokerUrl: string;
-  options: IClientOptions;
+  options: {
+    username: string;
+    password: string;
+    protocol: 'mqtts';
+    rejectUnauthorized: boolean;
+    reconnectPeriod: number;
+    connectTimeout: number;
+  };
   topics: {
-    alert: string;
     telemetry: string;
+    alert: string;
   };
 }
 
@@ -16,8 +21,7 @@ export function getMqttConfig(): MqttConfig | null {
   const port = parseInt(process.env.MQTT_PORT || '8883', 10);
 
   if (!brokerUrl || !username || !password) {
-    console.warn('MQTT credentials not fully configured - MQTT service disabled');
-    console.warn('Required: MQTT_BROKER_URL, MQTT_USERNAME, MQTT_PASSWORD');
+    console.warn('MQTT credentials not configured - MQTT service disabled');
     return null;
   }
 
@@ -28,13 +32,12 @@ export function getMqttConfig(): MqttConfig | null {
       password,
       protocol: 'mqtts',
       rejectUnauthorized: true,
-      reconnectPeriod: 5000, // Reconnect after 5 seconds
-      connectTimeout: 30000, // 30 second timeout
+      reconnectPeriod: 5000,
+      connectTimeout: 30000,
     },
     topics: {
-      // Subscribe to all ESP32 alert topics: plantformio/esp_001/alert, plantformio/esp_002/alert, etc.
-      alert: 'plantformio/+/alert',
       telemetry: 'plantformio/+/telemetry',
+      alert: 'plantformio/+/alert',
     },
   };
 }

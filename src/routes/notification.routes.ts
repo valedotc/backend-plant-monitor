@@ -3,10 +3,10 @@ import {
   registerToken,
   syncDeviceIds,
   unregisterToken,
+  getUnreadCount,
   getAlerts,
   acknowledgeAlert,
   acknowledgeAllAlerts,
-  getUnreadCount,
 } from '../controllers/notification.controller';
 
 const router = Router();

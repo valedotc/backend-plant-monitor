@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import { connectDatabase } from './config/database';
 import { initializeFirebase } from './config/firebase';
-import { alertWatcherService } from './services/alert-watcher.service';
+import { mqttService } from './services/mqtt.service';
 import deviceRoutes from './routes/device.routes';
 import notificationRoutes from './routes/notification.routes';
 
@@ -39,9 +39,8 @@ async function start() {
     // Initialize Firebase Admin SDK (for push notifications)
     initializeFirebase();
 
-    // Start watching for new alerts in MongoDB
-    // This uses Change Streams to detect new alerts written by MongoDB Atlas Triggers
-    await alertWatcherService.startWatching();
+    // Connect to MQTT broker and start ingesting telemetry + alerts
+    mqttService.connect();
 
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);

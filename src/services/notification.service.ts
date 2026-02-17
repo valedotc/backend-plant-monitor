@@ -1,24 +1,14 @@
 import { admin, isFirebaseInitialized } from '../config/firebase';
-import { DeviceToken, IDeviceToken } from '../models/device-token.model';
-import { IAlert, AlertType } from '../models/alert.model';
+import { DeviceToken } from '../models/device-token.model';
+import { AlertType, IAlert } from '../models/alert.model';
 
-interface SendResult {
-  success: boolean;
-  successCount: number;
-  failureCount: number;
-}
-
-export class NotificationService {
-  /**
-   * Send push notification for a critical alert
-   */
-  async sendAlertNotification(alert: IAlert): Promise<SendResult> {
+class NotificationService {
+  async sendAlertNotification(alert: IAlert) {
     if (!isFirebaseInitialized()) {
       console.warn('Firebase not initialized - skipping push notification');
       return { success: false, successCount: 0, failureCount: 0 };
     }
 
-    // Find all active tokens monitoring this device
     const tokens = await DeviceToken.find({
       deviceIds: alert.deviceId,
       isActive: true,
@@ -38,7 +28,6 @@ export class NotificationService {
         ...message,
       });
 
-      // Handle failed tokens (invalidate them)
       const failedTokens: string[] = [];
       response.responses.forEach((resp, idx) => {
         if (!resp.success) {
@@ -52,19 +41,12 @@ export class NotificationService {
         }
       });
 
-      // Deactivate invalid tokens
       if (failedTokens.length > 0) {
-        await DeviceToken.updateMany(
-          { fcmToken: { $in: failedTokens } },
-          { isActive: false }
-        );
+        await DeviceToken.updateMany({ fcmToken: { $in: failedTokens } }, { isActive: false });
         console.log(`Deactivated ${failedTokens.length} invalid FCM tokens`);
       }
 
-      console.log(
-        `Push notification sent: ${response.successCount} success, ${response.failureCount} failed`
-      );
-
+      console.log(`Push notification sent: ${response.successCount} success, ${response.failureCount} failed`);
       return {
         success: response.successCount > 0,
         successCount: response.successCount,
@@ -76,17 +58,11 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Build FCM message payload for an alert
-   */
   private buildAlertMessage(alert: IAlert) {
     const { title, body } = this.getAlertContent(alert);
 
     return {
-      notification: {
-        title,
-        body,
-      },
+      notification: { title, body },
       data: {
         type: 'CRITICAL_ALERT',
         alertId: alert._id?.toString() || '',
@@ -122,104 +98,69 @@ export class NotificationService {
     };
   }
 
-  /**
-   * Get human-readable title and body for alert type
-   */
   private getAlertContent(alert: IAlert): { title: string; body: string } {
     const deviceName = alert.deviceId.replace('esp32_', 'Plant #');
 
-    const contents: Record<AlertType, { title: string; body: string }> = {
+    const contents: Record<string, { title: string; body: string }> = {
       [AlertType.TEMPERATURE_HIGH]: {
-        title: '🌡️ Temperature Alert',
-        body: `${deviceName} temperature is too high (${alert.value}°C, threshold: ${alert.threshold}°C)`,
+        title: 'Temperature Alert',
+        body: `${deviceName} temperature is too high (${alert.value}C, threshold: ${alert.threshold}C)`,
       },
       [AlertType.TEMPERATURE_LOW]: {
-        title: '🌡️ Temperature Alert',
-        body: `${deviceName} temperature is too low (${alert.value}°C, threshold: ${alert.threshold}°C)`,
+        title: 'Temperature Alert',
+        body: `${deviceName} temperature is too low (${alert.value}C, threshold: ${alert.threshold}C)`,
       },
       [AlertType.HUMIDITY_HIGH]: {
-        title: '💧 Humidity Alert',
+        title: 'Humidity Alert',
         body: `${deviceName} humidity is too high (${alert.value}%, threshold: ${alert.threshold}%)`,
       },
       [AlertType.HUMIDITY_LOW]: {
-        title: '💧 Humidity Alert',
+        title: 'Humidity Alert',
         body: `${deviceName} humidity is too low (${alert.value}%, threshold: ${alert.threshold}%)`,
       },
       [AlertType.MOISTURE_HIGH]: {
-        title: '🌱 Overwatering Alert',
+        title: 'Overwatering Alert',
         body: `${deviceName} soil moisture is too high (${alert.value}%, threshold: ${alert.threshold}%)`,
       },
       [AlertType.MOISTURE_LOW]: {
-        title: '🌱 Water Your Plant!',
+        title: 'Water Your Plant!',
         body: `${deviceName} needs water! Soil moisture at ${alert.value}% (min: ${alert.threshold}%)`,
       },
       [AlertType.DEVICE_OFFLINE]: {
-        title: '📡 Device Offline',
+        title: 'Device Offline',
         body: `${deviceName} has gone offline. Check the device connection.`,
       },
     };
 
-    return contents[alert.alertType] || {
-      title: 'Plant Alert',
-      body: alert.message,
-    };
+    return contents[alert.alertType] || { title: 'Plant Alert', body: alert.message };
   }
 
-  /**
-   * Register or update FCM token
-   */
-  async registerToken(
-    appInstanceId: string,
-    fcmToken: string,
-    platform: 'ios' | 'android',
-    deviceIds: string[]
-  ): Promise<IDeviceToken> {
-    // Check if token already exists
+  async registerToken(appInstanceId: string, fcmToken: string, platform: 'ios' | 'android', deviceIds: string[]) {
     let token = await DeviceToken.findOne({ fcmToken });
 
     if (token) {
-      // Update existing token
       token.appInstanceId = appInstanceId;
       token.platform = platform;
       token.deviceIds = deviceIds;
       token.isActive = true;
       await token.save();
     } else {
-      // Check if this app instance has an old token and deactivate it
-      await DeviceToken.updateMany(
-        { appInstanceId, fcmToken: { $ne: fcmToken } },
-        { isActive: false }
-      );
-
-      // Create new token
-      token = await DeviceToken.create({
-        appInstanceId,
-        fcmToken,
-        platform,
-        deviceIds,
-        isActive: true,
-      });
+      await DeviceToken.updateMany({ appInstanceId, fcmToken: { $ne: fcmToken } }, { isActive: false });
+      token = await DeviceToken.create({ appInstanceId, fcmToken, platform, deviceIds, isActive: true });
     }
 
     console.log(`FCM token registered for ${platform} app (${deviceIds.length} devices)`);
     return token;
   }
 
-  /**
-   * Sync device IDs for a token
-   */
-  async syncDeviceIds(fcmToken: string, deviceIds: string[]): Promise<void> {
+  async syncDeviceIds(fcmToken: string, deviceIds: string[]) {
     await DeviceToken.updateOne({ fcmToken, isActive: true }, { deviceIds });
   }
 
-  /**
-   * Unregister FCM token
-   */
-  async unregisterToken(fcmToken: string): Promise<void> {
+  async unregisterToken(fcmToken: string) {
     await DeviceToken.updateOne({ fcmToken }, { isActive: false });
     console.log('FCM token unregistered');
   }
 }
 
-// Singleton instance
 export const notificationService = new NotificationService();

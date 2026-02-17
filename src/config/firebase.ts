@@ -1,5 +1,7 @@
 import admin from 'firebase-admin';
 
+export { admin };
+
 let firebaseInitialized = false;
 
 export function initializeFirebase(): void {
@@ -17,11 +19,9 @@ export function initializeFirebase(): void {
 
   try {
     const serviceAccount = JSON.parse(serviceAccountJson);
-
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-
     firebaseInitialized = true;
     console.log('Firebase Admin SDK initialized successfully');
   } catch (error) {
@@ -32,5 +32,3 @@ export function initializeFirebase(): void {
 export function isFirebaseInitialized(): boolean {
   return firebaseInitialized;
 }
-
-export { admin };
